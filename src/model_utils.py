@@ -10,9 +10,11 @@ import torch
 import torchvision
 import numpy as np
 import skimage
+import timm
 
 from src import settings
 
+TIMM_MODELS = {"convnext_d1": "convnext_pico.d1_in1k", "efficientvi_b1": "efficientvit_b1.r224_in1k"}
 
 # Reference: https://github.com/jayelm/compexp/blob/master/vision/loader/model_loader.py
 def load_model_from_settings(
@@ -29,65 +31,73 @@ def load_model_from_settings(
         torch.nn.Module: model
     """
     model_name = config.model
-    weights = config.get_weights()
-    parallel = config.get_parallel()
-    num_classes = config.get_num_classes()
-    model_file_path = config.get_model_file_path()
     pretrained = config.pretrained
-    
-    if pretrained == "places365" and not os.path.exists(model_file_path):
-        if not os.path.exists(config.get_model_root()):
-            os.makedirs(config.get_model_root())
-        raise FileNotFoundError(f"Model file not found: {model_file_path}")
-    if pretrained == "places365":
-        print(f"Loading model:{model_name}\n\tfrom {model_file_path}")
-    elif pretrained == "imagenet":
+
+    if model_name in TIMM_MODELS:
         print(
-            f"Loading model:{model_name}\n\tfrom imagenet pre-trained weights"
+            f"Loading model:{TIMM_MODELS[model_name]}\n\tfrom imagenet pre-trained weights"
         )
+        model = timm.create_model(TIMM_MODELS[model_name], pretrained=True)
     else:
-        print(f"Loading UNTRAINED model:{model_name}\n")
+        weights = config.get_weights()
+        parallel = config.get_parallel()
+        num_classes = config.get_num_classes()
+        model_file_path = config.get_model_file_path()
 
-    model_fn = torchvision.models.__dict__[model_name]
-
-    if weights == "IMAGENET1K_V1":
-        model = model_fn(weights=weights)
-    elif weights is None:
-        model = model_fn(pretrained=False, num_classes=num_classes)
-    else:
-        checkpoint = torch.load(weights, map_location=device)
-        if (
-            type(checkpoint).__name__ == "OrderedDict"
-            or type(checkpoint).__name__ == "dict"
-        ):
-            model = model_fn(num_classes=num_classes)
-            if parallel:
-                # the data parallel layer will add 'module' before each
-                # layer name
-                state_dict = {
-                    str.replace(k, "module.", ""): v
-                    for k, v in checkpoint["state_dict"].items()
-                }
-            else:
-                state_dict = checkpoint
-            model.load_state_dict(state_dict)
+        if pretrained == "places365" and not os.path.exists(model_file_path):
+            if not os.path.exists(config.get_model_root()):
+                os.makedirs(config.get_model_root())
+            raise FileNotFoundError(f"Model file not found: {model_file_path}")
+        if pretrained == "places365":
+            print(f"Loading model:{model_name}\n\tfrom {model_file_path}")
+        elif pretrained == "imagenet":
+            print(
+                f"Loading model:{model_name}\n\tfrom imagenet pre-trained weights"
+            )
         else:
-            if model_name == "densenet161":
-                # Fix old densenet pytorch names.
+            print(f"Loading UNTRAINED model:{model_name}\n")
+
+        model_fn = torchvision.models.__dict__[model_name]
+
+        if weights == "IMAGENET1K_V1":
+            model = model_fn(weights=weights)
+        elif weights is None:
+            model = model_fn(pretrained=False, num_classes=num_classes)
+        else:
+            checkpoint = torch.load(weights, map_location=device)
+            if (
+                type(checkpoint).__name__ == "OrderedDict"
+                or type(checkpoint).__name__ == "dict"
+            ):
                 model = model_fn(num_classes=num_classes)
-                state_dict = checkpoint.state_dict()
-
-                def rep(k):
-                    for i in range(6):
-                        k = k.replace(f"norm.{i}", f"norm{i}")
-                        k = k.replace(f"relu.{i}", f"relu{i}")
-                        k = k.replace(f"conv.{i}", f"conv{i}")
-                    return k
-
-                state_dict = {rep(k): v for k, v in state_dict.items()}
+                if parallel:
+                    # the data parallel layer will add 'module' before each
+                    # layer name
+                    state_dict = {
+                        str.replace(k, "module.", ""): v
+                        for k, v in checkpoint["state_dict"].items()
+                    }
+                else:
+                    state_dict = checkpoint
                 model.load_state_dict(state_dict)
             else:
-                model = checkpoint
+                if model_name == "densenet161":
+                    # Fix old densenet pytorch names.
+                    model = model_fn(num_classes=num_classes)
+                    state_dict = checkpoint.state_dict()
+
+                    def rep(k):
+                        for i in range(6):
+                            k = k.replace(f"norm.{i}", f"norm{i}")
+                            k = k.replace(f"relu.{i}", f"relu{i}")
+                            k = k.replace(f"conv.{i}", f"conv{i}")
+                        return k
+
+                    state_dict = {rep(k): v for k, v in state_dict.items()}
+                    model.load_state_dict(state_dict)
+                else:
+                    model = checkpoint
+
     model = model.to(device)
     model.eval()
     print(f"{model_name} loaded. Eval Modality")
@@ -224,7 +234,8 @@ def get_layer_activations(loader, model, layer, units, dir_activations):
     Returns:
         activations (list): list of activations for each unit
     """
-    layer_dir = f"{dir_activations}/{layer}"
+    layer_str = "_".join(layer) if isinstance(layer, list) else layer
+    layer_dir = f"{dir_activations}/{layer_str}"
     units_to_compute = []
     saved_units = []
     total_activations = [[None] for _ in range(max(units) + 1)]
@@ -237,7 +248,7 @@ def get_layer_activations(loader, model, layer, units, dir_activations):
                 np.load(f"{layer_dir}/{unit}.npy")
             )
     if len(units_to_compute) > 0:
-        print(f"Computing activations for all the units in {layer}")
+        print(f"Computing activations for all the units in {layer_str}")
 
         activations = compute_activations(
             loader, model, [layer], units=units_to_compute

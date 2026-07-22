@@ -182,6 +182,10 @@ class Settings:
             return ["features"]
         elif self.model == "vgg16":
             return ["features"]
+        elif self.model == "convnext_d1":
+            return [["stages", "3"]]
+        elif self.model == "efficientvit_b1":
+            return [["stages", "3"]]
 
     def get_parallel(self):
         """

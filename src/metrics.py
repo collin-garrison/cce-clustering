@@ -54,6 +54,21 @@ def sample_iou(vector1, vector2):
     return score
 
 
+def counter_iou(bitmaps, label_mask):
+    # Compute the IoU wrt the activation range considered
+    formula_iou = iou(label_mask, bitmaps)
+
+    # Compute the IoU wrt the other activations (~bitmaps)
+    counter_iou = iou(label_mask, ~bitmaps)
+    
+    # There must be a greater alignment in the activations considered than in all the other activations
+    diff = max(formula_iou - counter_iou, 0)
+    max_iou = max(formula_iou, counter_iou)
+    diff = diff / (max_iou + 1e-8) # Normalize diff to avoid scale weighting
+    
+    return diff
+
+
 def activations_coverage(activations, segmentations):
     """Compute the activation coverage for the given activations and
     segmentations.
@@ -68,6 +83,7 @@ def activations_coverage(activations, segmentations):
     return torch.count_nonzero(
         activations & segmentations
     ) / torch.count_nonzero(activations)
+
 
 def explanation_coverage(activations, segmentations):
     return get_num_nonzerosamples(

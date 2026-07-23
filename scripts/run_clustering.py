@@ -143,7 +143,7 @@ def main(argv):
             cfg.get_activation_directory(),
         )
 
-        layer_str = "_".join(layer_name) if isinstance(layer_name, list) else layer_name
+        layer_str = model_utils.get_layer_str(layer_name)
 
         # Plot activations
         # plt.hist(activations[activations > 0].flatten().cpu().numpy(), bins=1000)

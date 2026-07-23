@@ -221,6 +221,10 @@ def compute_activations(
     return activations
 
 
+def get_layer_str(layer_name):
+    return "-".join(layer_name) if isinstance(layer_name, list) else layer_name
+
+
 def get_layer_activations(loader, model, layer, units, dir_activations):
     """Checks if the activations are already computed and saved, otherwise
     computes them and saves them.
@@ -234,7 +238,7 @@ def get_layer_activations(loader, model, layer, units, dir_activations):
     Returns:
         activations (list): list of activations for each unit
     """
-    layer_str = "_".join(layer) if isinstance(layer, list) else layer
+    layer_str = get_layer_str(layer)
     layer_dir = f"{dir_activations}/{layer_str}"
     units_to_compute = []
     saved_units = []

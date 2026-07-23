@@ -10,6 +10,7 @@ import torchvision
 import absl.flags
 import absl.app
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from src import segmentations
 from src import model_utils
@@ -142,6 +143,16 @@ def main(argv):
             cfg.get_activation_directory(),
         )
 
+        layer_str = "_".join(layer_name) if isinstance(layer_name, list) else layer_name
+
+        # Plot activations
+        # plt.hist(activations[activations > 0].flatten().cpu().numpy(), bins=1000)
+        # plt.xlabel("Activation")
+        # plt.ylabel("Frequency")
+        # plt.title("Total Activations")
+        # plt.xlim(0, 10)
+        # plt.show()
+
         # Select units
         if FLAGS.random_units == 0:
             selected_units = range(num_units)
@@ -155,6 +166,14 @@ def main(argv):
         ):
             unit_activations = activations[unit]
 
+            # Plot unit activations
+            # plt.hist(unit_activations[unit_activations > 0].flatten().cpu().numpy(), bins=1000)
+            # plt.xlabel("Activation")
+            # plt.ylabel("Frequency")
+            # plt.title(f"Unit {unit} Activations")
+            # plt.xlim(0, 10)
+            # plt.show()
+
             # Compute activation range to be kept in the masks
             activation_ranges = activation_utils.compute_activation_ranges(
                 unit_activations, FLAGS.num_clusters)
@@ -165,7 +184,7 @@ def main(argv):
             ):
                 dir_current_results = (
                     f"{cfg.get_results_directory()}/"
-                    + f"{layer_name}/{unit}/{activation_range}"
+                    + f"{layer_str}/{unit}/{activation_range}"
                 )
                 if not os.path.exists(dir_current_results):
                     os.makedirs(dir_current_results)
@@ -201,11 +220,11 @@ def main(argv):
                         best_label, best_iou, visited = pickle.load(file)
                 string_label = F.get_formula_str(best_label, dataset.labels)
                 print(
-                    f"Parsed Unit: {unit} - "
-                    + f"Cluster: {cluster_index} - "
-                    + f"Best Label: {string_label} - "
-                    + f"Best IoU: {round(best_iou,3)} - "
-                    + f"Visited: {visited}"
+                    f"Unit {unit}, Cluster {cluster_index}: "
+                    + f"({activation_range[0]:.3f}, {activation_range[1]:.3f}) - "
+                    + f"{string_label} - "
+                    + f"{round(best_iou,3)} - "
+                    + f"{visited}"
                 )
 
 

@@ -185,11 +185,11 @@ def main(argv):
             cfg.get_activation_directory(),
         )
 
-        layer_str = "_".join(layer_name) if isinstance(layer_name, list) else layer_name
+        layer_str = model_utils.get_layer_str(layer_name)
 
         csv_file = (
             f"{cfg.get_results_directory()}/"
-            + f"{layer_str}_{FLAGS.num_clusters}_{FLAGS.length}"
+            + f"{layer_str}_{FLAGS.length}"
             + "_metrics.csv"
         )
 
@@ -197,31 +197,31 @@ def main(argv):
         clusters_scores = defaultdict(lambda: defaultdict(list))
 
         # Load previous results if any
-        file_already_exists = os.path.exists(csv_file)
-        done_unit = {}
-        if file_already_exists:
-            print("Loading previous results")
-            with open(csv_file, "r") as data:
-                csv_reader = csv.DictReader(data)
-                for line in csv_reader:
-                    u = int(line.pop("unit"))
-                    if u not in done_unit:
-                        done_unit[u] = []
-                    if u not in selected_units:
-                        continue
-                    cluster = int(line.pop("num_cluster"))
-                    done_unit[u].append(cluster)
-                    for column, score in line.items():
-                        total_scores[column].append(float(score))
-                        clusters_scores[cluster][column].append(float(score))
-            # Print Loaded results
-            print("Loaded results:")
-            print_summary(total_scores, clusters_scores)
+        # file_already_exists = os.path.exists(csv_file)
+        # done_unit = {}
+        # if file_already_exists:
+        #     print("Loading previous results")
+        #     with open(csv_file, "r") as data:
+        #         csv_reader = csv.DictReader(data)
+        #         for line in csv_reader:
+        #             u = int(line.pop("unit"))
+        #             if u not in done_unit:
+        #                 done_unit[u] = []
+        #             if u not in selected_units:
+        #                 continue
+        #             cluster = int(line.pop("num_cluster"))
+        #             done_unit[u].append(cluster)
+        #             for column, score in line.items():
+        #                 total_scores[column].append(float(score))
+        #                 clusters_scores[cluster][column].append(float(score))
+        #     # Print Loaded results
+        #     print("Loaded results:")
+        #     print_summary(total_scores, clusters_scores)
 
-        # Remove units already done
-        for unit in done_unit:
-            if len(done_unit[unit]) == FLAGS.num_clusters:
-                selected_units.remove(unit)
+        # # Remove units already done
+        # for unit in done_unit:
+        #     if len(done_unit[unit]) == FLAGS.num_clusters:
+        #         selected_units.remove(unit)
         print(f"Units to parse: {selected_units}")
 
         # Compute metrics for the remaining units
@@ -237,14 +237,14 @@ def main(argv):
             for cluster_index, activation_range in enumerate(
                 activation_ranges
             ):
-                if unit in done_unit and cluster_index in done_unit[unit]:
-                    print(unit, cluster_index, "already done")
-                    continue
+                # if unit in done_unit and cluster_index in done_unit[unit]:
+                #     print(unit, cluster_index, "already done")
+                #     continue
                 print(f"parsing {unit} {cluster_index}")
                 # Loop over all the activation ranges
                 dir_current_results = (
                     f"{cfg.get_results_directory()}"
-                    + f"/{layer_name}"
+                    + f"/{layer_str}"
                     + f"/{unit}/"
                     + f"{activation_range}"
                 )
@@ -271,16 +271,17 @@ def main(argv):
                     ) from exc
                 str_label = F.get_formula_str(best_label, dataset.labels)
                 print(
-                    f"Unit: {unit} - "
-                    + f"Cluster: {cluster_index} - "
-                    + f"Best Label: {str_label} - "
-                    + f"Best IoU: {round(best_iou,3)} - "
-                    + f"Visited: {visited}"
+                    f"Unit {unit}, Cluster {cluster_index}: "
+                    + f"({activation_range[0]:.3f}, {activation_range[1]:.3f}) - "
+                    + f"{str_label} - "
+                    + f"{round(best_iou,3)} - "
+                    + f"{visited}"
                 )
                 label_mask = mask_utils.get_formula_mask(best_label, masks).to(
                     device
                 )
                 iou = metrics.iou(bitmaps, label_mask)
+                counter_iou = metrics.counter_iou(bitmaps, label_mask)
                 activation_coverage = metrics.activations_coverage(
                     bitmaps, label_mask
                 )
@@ -318,18 +319,18 @@ def main(argv):
                 }
 
                 # concept activation
-                masking_score = metrics.get_concept_masking(
-                    activations=unit_activations,
-                    mask_shape=mask_shape,
-                    label_mask=label_mask,
-                    loader=segmentation_loader,
-                    model=model,
-                    layer_name=layer_name,
-                    unit=unit,
-                    input_size=image_size,
-                    activation_range=activation_range,
-                )
-                dict_results["label_masking"] = masking_score.item()
+                # masking_score = metrics.get_concept_masking(
+                #     activations=unit_activations,
+                #     mask_shape=mask_shape,
+                #     label_mask=label_mask,
+                #     loader=segmentation_loader,
+                #     model=model,
+                #     layer_name=layer_name,
+                #     unit=unit,
+                #     input_size=image_size,
+                #     activation_range=activation_range,
+                # )
+                # dict_results["label_masking"] = masking_score.item()
                 for metric, score in dict_results.items():
                     total_scores[metric].append(score)
                 for metric, score in dict_results.items():

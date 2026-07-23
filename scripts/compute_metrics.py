@@ -185,9 +185,11 @@ def main(argv):
             cfg.get_activation_directory(),
         )
 
+        layer_str = "_".join(layer_name) if isinstance(layer_name, list) else layer_name
+
         csv_file = (
             f"{cfg.get_results_directory()}/"
-            + f"{layer_name}_{FLAGS.num_clusters}_{FLAGS.length}"
+            + f"{layer_str}_{FLAGS.num_clusters}_{FLAGS.length}"
             + "_metrics.csv"
         )
 

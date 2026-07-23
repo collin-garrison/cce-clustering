@@ -72,8 +72,8 @@ FLAGS = absl.flags.FLAGS
 
 
 def main(argv):
-    if FLAGS.num_clusters < 1:
-        raise ValueError("num_clusters must be greater than 0")
+    if FLAGS.num_clusters < 1 and FLAGS.num_clusters != -1:
+        raise ValueError("num_clusters must be greater than 0, or -1 with non-fixed clustering")
     # Set seed
     generator = utils.set_seed(FLAGS.seed)
 

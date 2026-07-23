@@ -185,7 +185,7 @@ def main(argv):
             cfg.get_activation_directory(),
         )
 
-        layer_str = "_".join(layer_name) if isinstance(layer_name, list) else layer_name
+        layer_str = model_utils.get_layer_str(layer_name)
 
         csv_file = (
             f"{cfg.get_results_directory()}/"
@@ -271,16 +271,17 @@ def main(argv):
                     ) from exc
                 str_label = F.get_formula_str(best_label, dataset.labels)
                 print(
-                    f"Unit: {unit} - "
-                    + f"Cluster: {cluster_index} - "
-                    + f"Best Label: {str_label} - "
-                    + f"Best IoU: {round(best_iou,3)} - "
-                    + f"Visited: {visited}"
+                    f"Unit {unit}, Cluster {cluster_index}: "
+                    + f"({activation_range[0]:.3f}, {activation_range[1]:.3f}) - "
+                    + f"{str_label} - "
+                    + f"{round(best_iou,3)} - "
+                    + f"{visited}"
                 )
                 label_mask = mask_utils.get_formula_mask(best_label, masks).to(
                     device
                 )
                 iou = metrics.iou(bitmaps, label_mask)
+                counter_iou = metrics.counter_iou(bitmaps, label_mask)
                 activation_coverage = metrics.activations_coverage(
                     bitmaps, label_mask
                 )
@@ -305,6 +306,7 @@ def main(argv):
                 dict_results = {
                     "unit": unit,
                     "iou": iou.item(),
+                    "counter_iou": counter_iou.item(),
                     "activation_coverage": activation_coverage.item(),
                     "label_coverage": detection_accuracy.item(),
                     "samples_coverage": samples_coverage.item(),
@@ -318,18 +320,18 @@ def main(argv):
                 }
 
                 # concept activation
-                masking_score = metrics.get_concept_masking(
-                    activations=unit_activations,
-                    mask_shape=mask_shape,
-                    label_mask=label_mask,
-                    loader=segmentation_loader,
-                    model=model,
-                    layer_name=layer_name,
-                    unit=unit,
-                    input_size=image_size,
-                    activation_range=activation_range,
-                )
-                dict_results["label_masking"] = masking_score.item()
+                # masking_score = metrics.get_concept_masking(
+                #     activations=unit_activations,
+                #     mask_shape=mask_shape,
+                #     label_mask=label_mask,
+                #     loader=segmentation_loader,
+                #     model=model,
+                #     layer_name=layer_name,
+                #     unit=unit,
+                #     input_size=image_size,
+                #     activation_range=activation_range,
+                # )
+                # dict_results["label_masking"] = masking_score.item()
                 for metric, score in dict_results.items():
                     total_scores[metric].append(score)
                 for metric, score in dict_results.items():

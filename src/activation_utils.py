@@ -6,33 +6,58 @@ bitmaps of activations.
 
 from typing import List, Tuple
 
+import sys
 import torch
-import sklearn.cluster as scikit_cluster
+import numpy as np
+from hdbscan import HDBSCAN
 
 from src import vecquantile
 from src import constants as C
 
 
 def build_ranges_from_clusters(
-        activations: torch.Tensor, clusters: List[int],
-        num_clusters: int) -> List[tuple]:
-    """Build activation ranges from clusters.
+        activations: torch.Tensor, 
+        clusters: torch.Tensor,
+    ) -> List[tuple]:
 
-    Args:
-        activations (torch.Tensor): Activations of the unit.
-        clusters (List[int]): Clusters indexes of the activations.
-        num_clusters (int): Number of clusters.
-
-    Returns:
-        activation_ranges (List[tuple]): Activation ranges for each cluster.
-    """
+    unique_labels = torch.unique(clusters)
+    unique_labels = unique_labels[unique_labels != -1].tolist()
+    unique_labels = sorted(unique_labels, key=lambda l: activations[clusters == l].min().item())
 
     activations_ranges = []
-    for label in range(num_clusters):
+    print(f"Activations: {activations.numel()}")
+    print(f"Number of Clusters: {len(unique_labels) + 1}")
+    if (len(unique_labels)) > 100:
+        sys.exit("Error: Too many clusters")
+    print(f"Overall Noise: {100 * activations[clusters == -1].numel() / activations.numel():.2f}%")
+    
+    upper_bound = None
+    i = 0
+    for label in unique_labels:
+        print(f"\nCluster {i}:")
         cluster_activations = activations[clusters == label]
-        lower_bound = torch.min(cluster_activations)
-        upper_bound = torch.max(cluster_activations)
-        activations_ranges.append((lower_bound.item(), upper_bound.item()))
+        lower_bound = torch.min(cluster_activations).item()
+        upper_bound = torch.max(cluster_activations).item()
+        print(f"({lower_bound:.3f}, {upper_bound:.3f})")
+        print(
+            "Size: "
+            f"{100 * activations[(lower_bound <= activations) & (activations <= upper_bound)].numel() / activations.numel():.2f}%"
+            )
+        noise_density = (
+            activations[(clusters == -1) & (lower_bound <= activations.flatten()) & (activations.flatten() <= upper_bound)].numel()
+            / activations[(lower_bound <= activations) & (activations <= upper_bound)].numel()
+        )
+        print(f"Noise: {100 * noise_density:.2f}%")
+        activations_ranges.append((lower_bound, upper_bound))
+        i += 1
+
+    if upper_bound is not None:
+        print(f"\nCluster {i} (artificial):")
+        print(f"({upper_bound:.3f}, inf)")
+        print(f"Size: {100 * activations[activations > upper_bound].numel() / activations.numel():.2f}%\n")
+        print(f"Noise: 100%")
+        activations_ranges.append((upper_bound, float("inf")))
+
     return activations_ranges
 
 
@@ -42,31 +67,29 @@ def compute_activation_ranges(
 
     Args:
         activations (torch.Tensor): Activations of the unit.
-        num_clusters (int): Number of clusters.
-        algorithm (str): Algorithm to use for clustering.
+        num_clusters (int): Number of clusters (ignored).
 
     Returns:
         activation_ranges (List[tuple]): Activation ranges for each unit.
     """
-    if num_clusters == 1:
-        # Case vanilla compositional and netdissect range
-        # Avoid zero is set to false like in the compositional paper
-        threshold = quantile_threshold(
-            activations, quantile=C.NETDISSECT_QUANTILE, avoid_zero=False
-        )
-        activation_ranges = [(threshold, torch.tensor(float("inf")))]
-    else:
+    if num_clusters != -1:
+        print("Ignoring num_clusters flag because of non-fixed clustering")
+        
+    activations = activations.reshape(-1, 1)
+    
+    # Remove zeros from activations if there is a relu activation
+    if torch.all(activations >= 0):
+        activations = activations[activations > 0]
         activations = activations.reshape(-1, 1)
-        # Remove zeros from activations if there is a relu activation
-        if torch.all(activations >= 0):
-            activations = activations[activations > 0]
-            activations = activations.reshape(-1, 1)
-        # Compute activation ranges
-        clusters = scikit_cluster.KMeans(
-            n_clusters=num_clusters, random_state=0
-            ).fit(activations)
-        activation_ranges = build_ranges_from_clusters(
-            activations, clusters.labels_, num_clusters)
+
+    # Compute activation ranges
+    np.random.seed(0)
+    clusters = HDBSCAN(
+        min_cluster_size=int(0.02 * activations.numel()),
+        min_samples=50
+    ).fit_predict(activations.detach().cpu().numpy())
+
+    activation_ranges = build_ranges_from_clusters(activations, torch.tensor(clusters))
     return activation_ranges
 
 

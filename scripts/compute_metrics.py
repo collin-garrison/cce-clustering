@@ -306,6 +306,7 @@ def main(argv):
                 dict_results = {
                     "unit": unit,
                     "iou": iou.item(),
+                    "counter_iou": counter_iou.item(),
                     "activation_coverage": activation_coverage.item(),
                     "label_coverage": detection_accuracy.item(),
                     "samples_coverage": samples_coverage.item(),

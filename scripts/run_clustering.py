@@ -24,17 +24,22 @@ from src import constants as C
 
 # user flags
 absl.flags.DEFINE_string(
-    "subset", "ade20k", "subset to use. Values:[ade20k, pascal]"
+    "subset", "ade20k", "subset to use. Values: [ade20k, pascal]"
 )
 absl.flags.DEFINE_string(
     "model",
     "resnet18",
-    "model to use. Values:[resnet18, alexnet, resnet50, vgg16, densenet161]",
+    "model to use. Values: [resnet18, alexnet, resnet50, vgg16, densenet161]",
 )
 absl.flags.DEFINE_string(
     "pretrained",
     "places365",
-    "whether to use pretrained weights. Values [imagenet, places365, None]",
+    "whether to use pretrained weights. Values: [imagenet, places365, None]",
+)
+absl.flags.DEFINE_string(
+    "algorithm", 
+    "kmeans",
+    "algorithm to use. Values: [kmeans, gaussian_mixture, hierarchical, hdbscan]"
 )
 absl.flags.DEFINE_string("device", "cuda", "device to use to store the model")
 absl.flags.DEFINE_boolean(
@@ -72,8 +77,8 @@ FLAGS = absl.flags.FLAGS
 
 
 def main(argv):
-    if FLAGS.num_clusters < 1 and FLAGS.num_clusters != -1:
-        raise ValueError("num_clusters must be greater than 0, or -1 with non-fixed clustering")
+    if FLAGS.num_clusters < 1:
+        raise ValueError("num_clusters must be greater than 0 if set")
     # Set seed
     generator = utils.set_seed(FLAGS.seed)
 
@@ -146,11 +151,11 @@ def main(argv):
         layer_str = model_utils.get_layer_str(layer_name)
 
         # Plot activations
-        # plt.hist(activations[activations > 0].flatten().cpu().numpy(), bins=1000)
+        # plt.hist(activations.flatten().cpu().numpy(), bins=1000)
         # plt.xlabel("Activation")
         # plt.ylabel("Frequency")
         # plt.title("Total Activations")
-        # plt.xlim(0, 10)
+        # plt.xlim(-5, 5)
         # plt.show()
 
         # Select units
@@ -167,16 +172,16 @@ def main(argv):
             unit_activations = activations[unit]
 
             # Plot unit activations
-            # plt.hist(unit_activations[unit_activations > 0].flatten().cpu().numpy(), bins=1000)
+            # plt.hist(unit_activations.flatten().cpu().numpy(), bins=1000)
             # plt.xlabel("Activation")
             # plt.ylabel("Frequency")
             # plt.title(f"Unit {unit} Activations")
-            # plt.xlim(0, 10)
+            # plt.xlim(-5, 5)
             # plt.show()
 
             # Compute activation range to be kept in the masks
             activation_ranges = activation_utils.compute_activation_ranges(
-                unit_activations, FLAGS.num_clusters)
+                unit_activations, FLAGS.num_clusters, FLAGS.algorithm)
 
             # Loop over all the activation ranges
             for cluster_index, activation_range in enumerate(

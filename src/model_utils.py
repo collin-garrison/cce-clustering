@@ -14,7 +14,7 @@ import timm
 
 from src import settings
 
-TIMM_MODELS = {"convnext_d1": "convnext_pico.d1_in1k", "efficientvi_b1": "efficientvit_b1.r224_in1k"}
+TIMM_MODELS = {"convnext_d1": "convnext_pico.d1_in1k", "efficientvit_b1": "efficientvit_b1.r224_in1k"}
 
 # Reference: https://github.com/jayelm/compexp/blob/master/vision/loader/model_loader.py
 def load_model_from_settings(

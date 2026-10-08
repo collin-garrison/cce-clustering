@@ -13,30 +13,6 @@ from src import vecquantile
 from src import constants as C
 
 
-def import_algorithm(algorithm: str) -> None:
-    """Import the clustering algorithm.
-
-    Args:
-        algorithm (str): Algorithm to use for clustering.
-
-    Returns:
-        None
-    """
-    if algorithm == "kmeans":
-        from sklearn.cluster import KMeans
-    elif algorithm == "gaussian_mixture":
-        from sklearn.mixture import GaussianMixture
-    elif algorithm == "hierarchical":
-        from sklearn.cluster import AgglomerativeClustering
-    elif algorithm == "hdbscan":
-        from hdbscan import HDBSCAN
-    else:
-        raise ValueError(
-            "Unknown clustering algorithm. "
-            "Values: [kmeans, gaussian_mixture, hierarchical, hdbscan]"
-        )
-
-
 def build_ranges_from_clusters(
         activations: torch.Tensor, clusters: List[int],
         num_clusters: int) -> List[tuple]:
@@ -100,8 +76,6 @@ def compute_activation_ranges(
             activations, quantile=C.NETDISSECT_QUANTILE, avoid_zero=False
         )
         return [(threshold, torch.tensor(float("inf")))]
-
-    import_algorithm(algorithm)
     
     activations = activations.reshape(-1, 1)
     # Remove zeros from activations if there is a relu activation
@@ -116,7 +90,7 @@ def compute_activation_ranges(
         from sklearn.cluster import KMeans
         print("Running K-Means clustering")
         clusters = KMeans(
-            n_clusters=num_clusters, random_state=0, n_init=1
+            n_clusters=num_clusters, random_state=0, C.KMEANS_N_INIT
         ).fit_predict(activations.detach().cpu().numpy())
 
     elif algorithm == "gaussian_mixture":
@@ -136,7 +110,11 @@ def compute_activation_ranges(
         print("Ignoring num_clusters flag if set; HDBSCAN automatically determines the number of clusters")
         num_clusters = -1
         clusters = HDBSCAN(
-            min_cluster_size=int(0.02 * activations.numel()), min_samples=50
+            min_cluster_size=(
+                C.HDBSCAN_MIN_CLUSTER_SIZE if C.HDBSCAN_MIN_CLUSTER_SIZE is not None
+                else int(C.HDBSCAN_MIN_CLUSTER_RATIO * activations.numel())
+            ),
+            min_samples=C.HDBSCAN_MIN_SAMPLES
         ).fit_predict(activations.detach().cpu().numpy())
         clusters = torch.tensor(clusters)
 

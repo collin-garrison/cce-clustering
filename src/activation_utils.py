@@ -57,7 +57,7 @@ def build_ranges_from_clusters(
 
 
 def compute_activation_ranges(
-        activations: torch.Tensor, num_clusters: int, algorithm: str) -> List[Tuple]:
+        activations: torch.Tensor, num_clusters: int, algorithm: str, seed: int) -> List[Tuple]:
     """Compute activation ranges for each unit.
 
     Args:
@@ -84,19 +84,19 @@ def compute_activation_ranges(
         activations = activations.reshape(-1, 1)
 
     # Compute activation ranges
-    np.random.seed(0)
+    np.random.seed(seed)
 
     if algorithm == "kmeans":
         from sklearn.cluster import KMeans
         print("Running K-Means clustering")
         clusters = KMeans(
-            n_clusters=num_clusters, random_state=0, n_init=C.KMEANS_N_INIT
+            n_clusters=num_clusters, random_state=seed, n_init=C.KMEANS_N_INIT
         ).fit_predict(activations.detach().cpu().numpy())
 
     elif algorithm == "gaussian_mixture":
         from sklearn.mixture import GaussianMixture
         print("Running Gaussian Mixture Model")
-        gmm = GaussianMixture(n_components=num_clusters, random_state=0)
+        gmm = GaussianMixture(n_components=num_clusters, random_state=seed)
         clusters = gmm.fit_predict(activations.detach().cpu().numpy())
 
     elif algorithm == "hierarchical":

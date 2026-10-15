@@ -165,7 +165,8 @@ def main(argv):
 
             # Compute activation range to be kept in the masks
             activation_ranges = activation_utils.compute_activation_ranges(
-                unit_activations, FLAGS.num_clusters, FLAGS.algorithm)
+                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.seed
+            )
 
             # Loop over all the activation ranges
             for cluster_index, activation_range in enumerate(

@@ -248,7 +248,7 @@ def main(argv):
             # Get activation ranges from clusters
             unit_activations = activations[unit]
             activation_ranges = activation_utils.compute_activation_ranges(
-                unit_activations, FLAGS.num_clusters, FLAGS.algorithm
+                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.seed
             )
 
             total_samples = torch.zeros(len(dataset)).bool().to(device)
@@ -355,7 +355,7 @@ def main(argv):
                     total_scores[metric].append(score)
                 for metric, score in dict_results.items():
                     clusters_scores[cluster_index][metric].append(score)
-                    
+
                 # Print average so far
                 print_summary(total_scores, clusters_scores)
                 print("--------------------------------------------------")

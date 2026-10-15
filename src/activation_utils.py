@@ -57,7 +57,7 @@ def build_ranges_from_clusters(
 
 
 def compute_activation_ranges(
-        activations: torch.Tensor, num_clusters: int, algorithm: str, seed: int) -> List[Tuple]:
+        activations: torch.Tensor, num_clusters: int, algorithm: str, subsample_size: int, seed: int) -> List[Tuple]:
     """Compute activation ranges for each unit.
 
     Args:
@@ -71,9 +71,9 @@ def compute_activation_ranges(
     if num_clusters == 1:
         # Case vanilla compositional and netdissect range
         # Avoid zero is set to false like in the compositional paper
-        print("Skipping clustering because num_clusters is 1")
+        print("Returning quantile threshold because num_clusters is 1")
         threshold = quantile_threshold(
-            activations, quantile=C.NETDISSECT_QUANTILE, avoid_zero=False
+        D    activations, quantile=C.NETDISSECT_QUANTILE, avoid_zero=False
         )
         return [(threshold, torch.tensor(float("inf")))]
 
@@ -82,6 +82,11 @@ def compute_activation_ranges(
     if torch.all(activations >= 0):
         activations = activations[activations > 0]
         activations = activations.reshape(-1, 1)
+
+    if subsample_size > 0 and activations.shape[0] > subsample_size:
+        generator = torch.Generator().manual_seed(seed)
+        indices = torch.randperm(activations.shape[0], generator=generator)[:subsample_size]
+        activations = activations[indices]
 
     # Compute activation ranges
     np.random.seed(seed)

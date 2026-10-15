@@ -51,6 +51,7 @@ absl.flags.DEFINE_boolean(
 absl.flags.DEFINE_integer("length", 3, "length of explanations")
 absl.flags.DEFINE_integer("num_clusters", 5, "number of clusters")
 absl.flags.DEFINE_integer("beam_limit", 5, "beam limit")
+absl.flags.DEFINE_integer("subsample_size", 0, "subsample size")
 absl.flags.DEFINE_integer("random_units", 0, "number of units")
 absl.flags.DEFINE_string(
     "root_models", "data/model/", "root directory for models"
@@ -165,7 +166,7 @@ def main(argv):
 
             # Compute activation range to be kept in the masks
             activation_ranges = activation_utils.compute_activation_ranges(
-                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.seed
+                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.subsample, FLAGS.seed
             )
 
             # Loop over all the activation ranges

@@ -248,7 +248,7 @@ def main(argv):
             # Get activation ranges from clusters
             unit_activations = activations[unit]
             activation_ranges = activation_utils.compute_activation_ranges(
-                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.seed
+                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.subsample, FLAGS.seed
             )
 
             total_samples = torch.zeros(len(dataset)).bool().to(device)

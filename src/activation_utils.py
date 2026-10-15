@@ -76,21 +76,21 @@ def compute_activation_ranges(
             activations, quantile=C.NETDISSECT_QUANTILE, avoid_zero=False
         )
         return [(threshold, torch.tensor(float("inf")))]
-    
+
     activations = activations.reshape(-1, 1)
     # Remove zeros from activations if there is a relu activation
     if torch.all(activations >= 0):
         activations = activations[activations > 0]
         activations = activations.reshape(-1, 1)
 
+    # Compute activation ranges
     np.random.seed(0)
 
-    # Compute activation ranges
     if algorithm == "kmeans":
         from sklearn.cluster import KMeans
         print("Running K-Means clustering")
         clusters = KMeans(
-            n_clusters=num_clusters, random_state=0, C.KMEANS_N_INIT
+            n_clusters=num_clusters, random_state=0, n_init=C.KMEANS_N_INIT
         ).fit_predict(activations.detach().cpu().numpy())
 
     elif algorithm == "gaussian_mixture":
@@ -111,7 +111,8 @@ def compute_activation_ranges(
         num_clusters = -1
         clusters = HDBSCAN(
             min_cluster_size=(
-                C.HDBSCAN_MIN_CLUSTER_SIZE if C.HDBSCAN_MIN_CLUSTER_SIZE is not None
+                C.HDBSCAN_MIN_CLUSTER_SIZE 
+                if C.HDBSCAN_MIN_CLUSTER_SIZE is not None
                 else int(C.HDBSCAN_MIN_CLUSTER_RATIO * activations.numel())
             ),
             min_samples=C.HDBSCAN_MIN_SAMPLES
@@ -147,7 +148,7 @@ def compute_bitmaps(
         size=mask_shape, mode='bilinear')
     upsampled_activations = upsampled_activations.squeeze(1)
     bitmaps = torch.where(
-        (upsampled_activations > lower) & (upsampled_activations <= upper),
+        (upsampled_activations >= lower) & (upsampled_activations <= upper),
         True, False)
     bitmaps = bitmaps.reshape(bitmaps.shape[0], -1)
     return bitmaps

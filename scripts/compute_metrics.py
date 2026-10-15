@@ -21,6 +21,7 @@ from src import metrics
 from src import utils
 from src import formula as F
 from src import settings
+from src import constants as C
 
 
 # User flags
@@ -169,9 +170,6 @@ def main(argv):
         cfg.device
     )
 
-    total_scores = None
-    clusters_scores = None
-
     # Loop over all the selected layers
     for _, layer_name in enumerate(cfg.get_feature_names()):
         # Get the number of units in the layer
@@ -195,41 +193,52 @@ def main(argv):
 
         layer_str = model_utils.get_layer_str(layer_name)
 
-        # csv_file = (
-        #     f"{cfg.get_results_directory()}/"
-        #     + f"{layer_str}_{FLAGS.num_clusters}_{FLAGS.length}"
-        #     + "_metrics.csv"
-        # )
+        if FLAGS.algorithm == "hdbscan":
+            min_cluster_size = (
+                C.HDBSCAN_MIN_CLUSTER_SIZE
+                if C.HDBSCAN_MIN_CLUSTER_SIZE is not None
+                else str(C.HDBSCAN_MIN_CLUSTER_RATIO).replace(".", "_")
+            )
+            param_str = f"mcs{min_cluster_size}_ms{C.HDBSCAN_MIN_SAMPLES}"
+        else:
+            param_str = f"nc{FLAGS.num_clusters}"
+
+        csv_file = (
+            f"{cfg.get_results_directory()}/"
+            + f"{layer_str}_{FLAGS.algorithm}"
+            + f"_{param_str}_l{FLAGS.length}"
+            + "_metrics.csv"
+        )
 
         total_scores = defaultdict(list)
         clusters_scores = defaultdict(lambda: defaultdict(list))
 
-        # # Load previous results if any
-        # file_already_exists = os.path.exists(csv_file)
-        # done_unit = {}
-        # if file_already_exists:
-        #     print("Loading previous results")
-        #     with open(csv_file, "r") as data:
-        #         csv_reader = csv.DictReader(data)
-        #         for line in csv_reader:
-        #             u = int(line.pop("unit"))
-        #             if u not in done_unit:
-        #                 done_unit[u] = []
-        #             if u not in selected_units:
-        #                 continue
-        #             cluster = int(line.pop("num_cluster"))
-        #             done_unit[u].append(cluster)
-        #             for column, score in line.items():
-        #                 total_scores[column].append(float(score))
-        #                 clusters_scores[cluster][column].append(float(score))
-        #     # Print Loaded results
-        #     print("Loaded results:")
-        #     print_summary(total_scores, clusters_scores)
+        # Load previous results if any
+        file_already_exists = os.path.exists(csv_file)
+        done_unit = {}
+        if file_already_exists:
+            print("Loading previous results")
+            with open(csv_file, "r") as data:
+                csv_reader = csv.DictReader(data)
+                for line in csv_reader:
+                    u = int(line.pop("unit"))
+                    if u not in done_unit:
+                        done_unit[u] = []
+                    if u not in selected_units:
+                        continue
+                    cluster = int(line.pop("num_cluster"))
+                    done_unit[u].append(cluster)
+                    for column, score in line.items():
+                        total_scores[column].append(float(score))
+                        clusters_scores[cluster][column].append(float(score))
+            # Print Loaded results
+            print("Loaded results:")
+            print_summary(total_scores, clusters_scores)
 
-        # # Remove units already done
-        # for unit in done_unit:
+        # Remove units already done
+        for unit in done_unit:
         #     if len(done_unit[unit]) == FLAGS.num_clusters:
-        #         selected_units.remove(unit)
+            selected_units.remove(unit)
         print(f"Units to parse: {selected_units}")
 
         # Compute metrics for the remaining units
@@ -239,7 +248,9 @@ def main(argv):
             # Get activation ranges from clusters
             unit_activations = activations[unit]
             activation_ranges = activation_utils.compute_activation_ranges(
-                unit_activations, FLAGS.num_clusters, FLAGS.algorithm)
+                unit_activations, FLAGS.num_clusters, FLAGS.algorithm
+            )
+
             total_samples = torch.zeros(len(dataset)).bool().to(device)
             for cluster_index, activation_range in enumerate(
                 activation_ranges
@@ -251,12 +262,12 @@ def main(argv):
                 # Loop over all the activation ranges
                 dir_current_results = (
                     f"{cfg.get_results_directory()}"
-                    + f"/{layer_name}"
+                    + f"/{layer_str}"
                     + f"/{unit}/"
                     + f"{activation_range}"
                 )
-                # if not os.path.exists(dir_current_results):
-                #     os.makedirs(dir_current_results)
+                if not os.path.exists(dir_current_results):
+                    os.makedirs(dir_current_results)
                 file_algo_results = (
                     f"{dir_current_results}/{FLAGS.length}.pickle"
                 )
@@ -279,7 +290,7 @@ def main(argv):
                 str_label = F.get_formula_str(best_label, dataset.labels)
                 print(
                     f"Unit {unit}, Cluster {cluster_index}: "
-                    + f"({activation_range[0]:.3f}, {activation_range[1]:.3f}) - "
+                    + f"[{activation_range[0]:.3f}, {activation_range[1]:.3f}] - "
                     + f"{str_label} - "
                     + f"{round(best_iou,3)} - "
                     + f"{visited}"
@@ -339,27 +350,29 @@ def main(argv):
                 #     activation_range=activation_range,
                 # )
                 # dict_results["label_masking"] = masking_score.item()
+
                 for metric, score in dict_results.items():
                     total_scores[metric].append(score)
                 for metric, score in dict_results.items():
                     clusters_scores[cluster_index][metric].append(score)
+                    
+                # Print average so far
+                print_summary(total_scores, clusters_scores)
+                print("--------------------------------------------------")
 
                 # Save results
-                # with open(csv_file, "a+") as f_object:
-                #     dictwriter = csv.DictWriter(
-                #         f_object, fieldnames=dict_results.keys()
-                #     )
-                #     if (
-                #         not file_already_exists
-                #     ):  # if file doesn't exist yet, write a header
-                #         dictwriter.writeheader()
-                #         file_already_exists = True
-                #     dictwriter.writerow(dict_results)
-                #     f_object.close()
+                with open(csv_file, "a+") as f_object:
+                    dictwriter = csv.DictWriter(
+                        f_object, fieldnames=dict_results.keys()
+                    )
+                    if (
+                        not file_already_exists
+                    ):  # if file doesn't exist yet, write a header
+                        dictwriter.writeheader()
+                        file_already_exists = True
+                    dictwriter.writerow(dict_results)
+                    f_object.close()
 
-    # Print average so far
-    print_summary(total_scores, clusters_scores)
-    print("--------------------------------------------------")
 
 
 if __name__ == "__main__":

@@ -150,14 +150,6 @@ def main(argv):
 
         layer_str = model_utils.get_layer_str(layer_name)
 
-        # Plot activations
-        # plt.hist(activations.flatten().cpu().numpy(), bins=1000)
-        # plt.xlabel("Activation")
-        # plt.ylabel("Frequency")
-        # plt.title("Total Activations")
-        # plt.xlim(-5, 5)
-        # plt.show()
-
         # Select units
         if FLAGS.random_units == 0:
             selected_units = range(num_units)
@@ -171,14 +163,6 @@ def main(argv):
         ):
             unit_activations = activations[unit]
 
-            # Plot unit activations
-            # plt.hist(unit_activations.flatten().cpu().numpy(), bins=1000)
-            # plt.xlabel("Activation")
-            # plt.ylabel("Frequency")
-            # plt.title(f"Unit {unit} Activations")
-            # plt.xlim(-5, 5)
-            # plt.show()
-
             # Compute activation range to be kept in the masks
             activation_ranges = activation_utils.compute_activation_ranges(
                 unit_activations, FLAGS.num_clusters, FLAGS.algorithm)
@@ -187,6 +171,9 @@ def main(argv):
             for cluster_index, activation_range in enumerate(
                 sorted(activation_ranges)
             ):
+                if not activation_range:
+                    continue
+                
                 dir_current_results = (
                     f"{cfg.get_results_directory()}/"
                     + f"{layer_str}/{unit}/{activation_range}"
@@ -226,7 +213,7 @@ def main(argv):
                 string_label = F.get_formula_str(best_label, dataset.labels)
                 print(
                     f"Unit {unit}, Cluster {cluster_index}: "
-                    + f"({activation_range[0]:.3f}, {activation_range[1]:.3f}) - "
+                    + f"[{activation_range[0]:.3f}, {activation_range[1]:.3f}] - "
                     + f"{string_label} - "
                     + f"{round(best_iou,3)} - "
                     + f"{visited}"

@@ -50,6 +50,7 @@ absl.flags.DEFINE_string("device", "cuda", "device to use to store the model")
 absl.flags.DEFINE_integer("length", 3, "length of explanations")
 absl.flags.DEFINE_integer("num_clusters", 5, "number of clusters")
 absl.flags.DEFINE_integer("beam_limit", 5, "beam limit")
+absl.flags.DEFINE_integer("subsample_size", 0, "subsample size")
 absl.flags.DEFINE_integer("random_units", 0, "number of units")
 absl.flags.DEFINE_string(
     "root_models", "data/model/", "root directory for models"
@@ -248,7 +249,7 @@ def main(argv):
             # Get activation ranges from clusters
             unit_activations = activations[unit]
             activation_ranges = activation_utils.compute_activation_ranges(
-                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.subsample, FLAGS.seed
+                unit_activations, FLAGS.num_clusters, FLAGS.algorithm, FLAGS.subsample_size, FLAGS.seed
             )
 
             total_samples = torch.zeros(len(dataset)).bool().to(device)

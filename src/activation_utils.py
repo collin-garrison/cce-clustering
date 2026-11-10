@@ -73,7 +73,7 @@ def compute_activation_ranges(
         # Avoid zero is set to false like in the compositional paper
         print("Returning quantile threshold because num_clusters is 1")
         threshold = quantile_threshold(
-        D    activations, quantile=C.NETDISSECT_QUANTILE, avoid_zero=False
+            activations, quantile=C.NETDISSECT_QUANTILE, avoid_zero=False
         )
         return [(threshold, torch.tensor(float("inf")))]
 

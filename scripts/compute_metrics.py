@@ -204,6 +204,16 @@ def main(argv):
         else:
             param_str = f"nc{FLAGS.num_clusters}"
 
+        if FLAGS.subsample_size > 0:
+            size = FLAGS.subsample_size
+            for unit in ["", "k", "m"]:
+                if size < 1000:
+                    param_str += f"ss{size:.1f}".rstrip("0").rstrip(".") + unit
+                    break
+                size /= 1000
+            else:
+                param_str += f"ss{size:.1f}".rstrip("0").rstrip(".") + "b"
+
         csv_file = (
             f"{cfg.get_results_directory()}/"
             + f"{layer_str}_{FLAGS.algorithm}"

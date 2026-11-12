@@ -46,11 +46,11 @@ def build_ranges_from_clusters(
     max_bound = torch.max(activations[clusters != -1]).item()
 
     if torch.any(activations < min_bound):
-        print("Prepending artificial cluster for noisy low activations")
+        print("Prepending artificial cluster for low activations")
         activations_ranges.insert(0, (float("-inf"), min_bound))
 
     if torch.any(activations > max_bound):
-        print("Appending artificial cluster for noisy high activations")
+        print("Appending artificial cluster for high activations")
         activations_ranges.append((max_bound, float("inf")))
 
     return activations_ranges
@@ -88,31 +88,32 @@ def compute_activation_ranges(
         indices = torch.randperm(activations.shape[0], generator=generator)[:subsample_size]
         activations = activations[indices]
 
-    # Compute activation ranges
     np.random.seed(seed)
+
+    # Compute activation ranges
+    if algorithm == "hdbscan":
+        print("Ignoring num_clusters flag if set; HDBSCAN automatically determines the number of clusters")
+
+    alg_name = algorithm.replace("_", " ")
+    print(f"Running {alg_name} clustering...", end="", flush=True)
 
     if algorithm == "kmeans":
         from sklearn.cluster import KMeans
-        print("Running K-Means clustering")
         clusters = KMeans(
             n_clusters=num_clusters, random_state=seed, n_init=C.KMEANS_N_INIT
         ).fit_predict(activations.detach().cpu().numpy())
 
     elif algorithm == "gaussian_mixture":
         from sklearn.mixture import GaussianMixture
-        print("Running Gaussian Mixture Model")
         gmm = GaussianMixture(n_components=num_clusters, random_state=seed)
         clusters = gmm.fit_predict(activations.detach().cpu().numpy())
 
     elif algorithm == "hierarchical":
         from sklearn.cluster import AgglomerativeClustering
-        print("Running Hierarchical clustering")
         clusters = AgglomerativeClustering(n_clusters=num_clusters).fit_predict(activations.detach().cpu().numpy())
 
     elif algorithm == "hdbscan":
         from hdbscan import HDBSCAN
-        print("Running HDBSCAN")
-        print("Ignoring num_clusters flag if set; HDBSCAN automatically determines the number of clusters")
         num_clusters = -1
         clusters = HDBSCAN(
             min_cluster_size=(
@@ -126,6 +127,8 @@ def compute_activation_ranges(
 
     else:
         raise ValueError("Unknown clustering algorithm. Values: [kmeans, gaussian_mixture, hierarchical, hdbscan]")
+        
+    print(" finished")
 
     activation_ranges = build_ranges_from_clusters(activations, clusters, num_clusters)
 
